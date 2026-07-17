@@ -1,7 +1,5 @@
 # Utility Network Schema QA Copilot
 
-> **Project Status:** Active development. This README documents the planned v1.0 product interface. Features are being implemented and verified incrementally.
-
 An open-source, AI-assisted validation toolkit for water, wastewater, and stormwater Utility Network schema mappings.
 
 The Utility Network Schema QA Copilot helps utilities, engineering firms, municipalities, and GIS teams identify schema and mapping problems before data migration begins. It combines a deterministic Python validation engine with an AI knowledge assistant that explains findings, cites technical guidance, and recommends remediation steps.
