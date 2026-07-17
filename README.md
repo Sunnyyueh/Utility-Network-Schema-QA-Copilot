@@ -186,87 +186,134 @@ The deterministic validator does not require an AI provider. AI functionality us
 
 ## Example Conversations
 
-These examples show how different stakeholders can ask questions about the same deterministic validation results. The Copilot can explain, summarize, and recommend review steps, but it cannot create, remove, or change validation findings.
+These examples show how different stakeholders can have a natural conversation with the AI agent about deterministic validation results. Each example includes an iOS-style visual preview and an expandable text transcript for accessibility and search.
 
 ### GIS Analyst — Investigate Technical Findings
 
-> [!TIP]
-> **Ask the Copilot**
+<p align="center">
+  <img src="docs/images/gis-analyst-chat.png" alt="iOS-style conversation between a GIS analyst and Utility Network Schema QA Copilot about schema-mapping blockers" width="420">
+</p>
+
+<details>
+<summary><strong>Read the accessible conversation transcript</strong></summary>
+
+> [!NOTE]
+> 👤 **User**
 >
 > “I uploaded a source schema, target schema, and field mapping. Which findings block migration, and what should I review first?”
 
-**Illustrative structured response**
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> I completed the deterministic review. The mapping is **not ready for migration**: I found **2 blockers**, **4 warnings**, and **18 passing checks**.
+>
+> The highest-priority findings are:
+>
+> - `UNQA-V014` — The required target field `assetgroup` has no source mapping.
+> - `UNQA-V021` — Four source values in the `Material` domain have no approved target match.
+> - `UNQA-V031` — The combination `asset_group_code=2` and `asset_type_code=7` has no approved target classification.
+>
+> The affected datasets include `ServiceLine` and `Device`. Resolve the required-field and classification mappings first, then review the `Material` crosswalk with the data owner.
 
-| Validation status | Count |
-| --- | ---: |
-| Blocker | 2 |
-| Warning | 4 |
-| Pass | 18 |
+> [!NOTE]
+> 👤 **User**
+>
+> “Why does the classification issue block migration, and what should I change?”
 
-**Technical summary**
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> The target requires an approved Asset Group / Asset Type pair. Without one, migrated records may be rejected or assigned to the wrong network classification.
+>
+> Add an approved mapping for `(2, 7)`, document the transformation, review the `Material` crosswalk, and rerun deterministic validation. The blocker remains open until the rules confirm that the target classification is valid.
 
-Migration is not ready. A required target field is unmapped, and several source domain values do not have an approved target value.
-
-**Evidence**
-
-- `UNQA-V014` — Required target field `assetgroup` has no source mapping.
-- `UNQA-V021` — Four source values in the `Material` domain have no target match.
-- Affected datasets: `ServiceLine` and `Device`.
-
-**Recommended next action:** map the required field, review the domain crosswalk with the data owner, and rerun deterministic validation before loading data.
+</details>
 
 ---
 
 ### Project Manager — Understand Migration Readiness
 
-> [!TIP]
-> **Ask the Copilot**
+<p align="center">
+  <img src="docs/images/project-manager-chat.png" alt="iOS-style conversation between a project manager and Utility Network Schema QA Copilot about migration readiness" width="420">
+</p>
+
+<details>
+<summary><strong>Read the accessible conversation transcript</strong></summary>
+
+> [!NOTE]
+> 👤 **User**
 >
 > “Can the project proceed to data loading, and what should I communicate to the delivery team?”
 
-**Illustrative structured response**
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> I recommend **pausing data loading**. Two blocker findings remain unresolved:
+>
+> - `UNQA-V014` could leave a required target classification empty.
+> - `UNQA-V031` shows that Asset Group `2` / Asset Type `7` has no approved target mapping.
+>
+> The schema review is substantially complete, but the project has not met the migration-readiness gate. Loading now risks rejected or misclassified records, rework, and schedule disruption.
 
-| Decision factor | Result |
-| --- | --- |
-| Readiness decision | **PAUSE** |
-| Primary reason | Two unresolved blocker findings |
-| Affected workstreams | Field mapping and domain review |
-| Next checkpoint | Revalidate after corrective actions are approved |
+> [!NOTE]
+> 👤 **User**
+>
+> “What actions should I assign, and what is our next readiness checkpoint?”
 
-**Executive summary**
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> Assign `UNQA-V014` to the field-mapping owner and `UNQA-V031` to the classification owner. Each owner should record the approved correction and reviewer disposition.
+>
+> Use the next deterministic validation run as the checkpoint. Proceed only when no blockers remain and the team has reviewed any remaining warnings.
 
-The project should pause before data loading. The current mapping could leave a required classification empty and introduce unapproved coded values. Resolving these items now reduces the risk of rejected records, rework, and schedule disruption during migration.
-
-**Recommended next action:** assign each blocker to an accountable owner, record the agreed disposition, and use the next validation run as the readiness checkpoint.
+</details>
 
 ---
 
 ### Utility Organization — Create Audit-Ready Evidence
 
-> [!TIP]
-> **Ask the Copilot**
+<p align="center">
+  <img src="docs/images/utility-organization-chat.png" alt="iOS-style conversation between a utility organization and Utility Network Schema QA Copilot about audit-ready evidence" width="420">
+</p>
+
+<details>
+<summary><strong>Read the accessible conversation transcript</strong></summary>
+
+> [!NOTE]
+> 👤 **User**
 >
-> “How can we demonstrate to our governance and QA/QC teams that this schema mapping was reviewed consistently?”
+> “How can we prove that this schema mapping was reviewed consistently?”
 
-**Illustrative structured response**
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> Use the validation package as the shared evidence record. It captures:
+>
+> - Run ID, timestamp, selected utility profile, toolkit version, and ruleset version.
+> - SHA-256 hashes for every submitted input file.
+> - Each finding code—including `UNQA-V014`, `UNQA-V021`, and `UNQA-V031`—with its dataset, field, severity, and supporting evidence.
+>
+> This gives GIS, engineering, management, and governance teams the same reproducible review baseline.
 
-The validation package provides a traceable record of what was reviewed and which deterministic rules produced each finding.
+> [!NOTE]
+> 👤 **User**
+>
+> “Can you prepare an audit-ready summary for our internal QA/QC review?”
 
-| Evidence item | Recorded value |
-| --- | --- |
-| Validation run | Run ID and execution timestamp |
-| Reproducibility | Toolkit, profile, and ruleset versions |
-| Input integrity | SHA-256 hashes for submitted files |
-| Finding traceability | Rule code, dataset, field, severity, and evidence |
-| Review accountability | Disposition, reviewer notes, and follow-up action |
-| Portable outputs | JSON, CSV, Markdown, and HTML reports |
+> [!TIP]
+> 🤖 **Utility Network Schema QA Copilot**
+>
+> Yes. I would organize the summary around four evidence groups:
+>
+> 1. **Run provenance** — run ID, execution timestamp, toolkit version, profile, and ruleset version.
+> 2. **Input integrity** — SHA-256 hashes for every submitted file.
+> 3. **Finding traceability** — rule code, affected dataset and field, severity, evidence, and recommended action.
+> 4. **Review accountability** — reviewer disposition, notes, assigned owner, and follow-up status.
+>
+> The same evidence can be exported to JSON, CSV, Markdown, or HTML for technical review, governance records, and project assurance.
 
-**Organizational value**
-
-- Applies the same QA/QC rules across projects and reviewers.
-- Preserves specialist review knowledge in reusable profiles and rules.
-- Gives engineering, GIS, management, and governance teams a shared evidence format.
-- Supports internal audits, project assurance, onboarding, and repeatable migration decisions.
+</details>
 
 > [!IMPORTANT]
 > Deterministic findings remain the source of truth. AI-generated explanations and recommendations cannot alter finding codes, severity, evidence, or validation status.
