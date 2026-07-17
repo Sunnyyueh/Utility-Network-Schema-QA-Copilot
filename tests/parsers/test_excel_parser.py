@@ -66,6 +66,26 @@ def test_excel_parser_serializes_missing_cells_as_json_null(tmp_path: Path) -> N
     assert '"length":null' in document.model_dump_json()
 
 
+def test_excel_parser_preserves_default_na_tokens_as_text(tmp_path: Path) -> None:
+    path = tmp_path / "schema.xlsx"
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Fields"
+    worksheet.append(["text", "blank"])
+    for token in ("NA", "N/A", "NULL", "NaN"):
+        worksheet.append([token, None])
+    workbook.save(path)
+
+    document = ExcelParser().parse(path)
+
+    assert document.sheets[0].rows == (
+        {"text": "NA", "blank": None},
+        {"text": "N/A", "blank": None},
+        {"text": "NULL", "blank": None},
+        {"text": "NaN", "blank": None},
+    )
+
+
 def test_excel_parser_preserves_header_only_sheet_as_empty_rows(tmp_path: Path) -> None:
     path = tmp_path / "schema.xlsx"
     with pd.ExcelWriter(path) as writer:
@@ -181,6 +201,22 @@ def test_excel_parser_rejects_blank_or_missing_headers(tmp_path: Path) -> None:
     assert error.code == "XLSX_PARSE_FAILED"
     assert error.path == path
     assert error.detail == "worksheet 'Fields': blank header at column 2"
+
+
+def test_excel_parser_accepts_default_na_token_header_as_text(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "schema.xlsx"
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Fields"
+    worksheet.append(["NA", "value"])
+    worksheet.append(["kept", "data"])
+    workbook.save(path)
+
+    document = ExcelParser().parse(path)
+
+    assert document.sheets[0].rows == ({"NA": "kept", "value": "data"},)
 
 
 def test_excel_parser_rejects_a_missing_header_row(tmp_path: Path) -> None:

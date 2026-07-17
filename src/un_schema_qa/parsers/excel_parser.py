@@ -18,12 +18,20 @@ class ExcelParser:
                 path,
                 sheet_name=None,
                 header=None,
+                keep_default_na=False,
+                na_values=[""],
                 nrows=1,
                 dtype=object,
             )
             for name, frame in raw_workbook.items():
                 _validate_headers(path, name, frame)
-            workbook = pd.read_excel(path, sheet_name=None, dtype=object)
+            workbook = pd.read_excel(
+                path,
+                sheet_name=None,
+                dtype=object,
+                keep_default_na=False,
+                na_values=[""],
+            )
         except (OSError, ValueError) as exc:
             raise InputParseError("XLSX_PARSE_FAILED", path, str(exc)) from exc
 

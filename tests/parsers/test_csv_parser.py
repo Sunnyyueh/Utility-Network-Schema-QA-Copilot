@@ -47,6 +47,23 @@ def test_csv_parser_normalizes_blank_cells_to_json_null(tmp_path: Path) -> None:
     }
 
 
+def test_csv_parser_preserves_default_na_tokens_as_text(tmp_path: Path) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text(
+        "text,blank\nNA,\nN/A,\nNULL,\nNaN,\n",
+        encoding="utf-8",
+    )
+
+    document = CsvParser().parse(path)
+
+    assert document.sheets[0].rows == (
+        {"text": "NA", "blank": None},
+        {"text": "N/A", "blank": None},
+        {"text": "NULL", "blank": None},
+        {"text": "NaN", "blank": None},
+    )
+
+
 @pytest.mark.parametrize(
     ("contents", "cause_type"),
     [(None, FileNotFoundError), (b"", pd.errors.EmptyDataError)],

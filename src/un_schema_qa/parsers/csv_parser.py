@@ -43,6 +43,8 @@ class CsvParser:
                 dtype=object,
                 encoding="utf-8-sig",
                 header=0,
+                keep_default_na=False,
+                na_values=[""],
                 names=headers or None,
             )
         except (
