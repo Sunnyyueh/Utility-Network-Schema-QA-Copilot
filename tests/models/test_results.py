@@ -1,0 +1,172 @@
+from datetime import UTC, datetime
+
+import pytest
+from pydantic import ValidationError
+
+from un_schema_qa.models.common import SourceLocation
+from un_schema_qa.models.enums import CheckStatus, RunStatus, UtilityDomain
+from un_schema_qa.models.results import CheckResult, RunError, RunMetadata, ValidationRun
+
+
+def _check_result(**overrides: object) -> CheckResult:
+    values: dict[str, object] = {
+        "finding_code": "UNQA-V001",
+        "rule_version": "1.0.0",
+        "status": CheckStatus.PASS,
+        "severity_rank": 0,
+        "profile": UtilityDomain.WATER,
+        "expected": {"required": ["name"]},
+        "actual": {"present": ["name"]},
+        "evidence": {"columns": ["name"]},
+        "remediation_category": "none",
+        "remediation_guidance": "No action required.",
+    }
+    values.update(overrides)
+    return CheckResult.model_validate(values)
+
+
+def _run_metadata(**overrides: object) -> RunMetadata:
+    values: dict[str, object] = {
+        "run_id": "run-001",
+        "started_at": datetime(2026, 7, 16, tzinfo=UTC),
+        "ruleset_version": "1.0.0",
+        "profile_version": "1.0.0",
+    }
+    values.update(overrides)
+    return RunMetadata.model_validate(values)
+
+
+def test_validation_run_serializes_a_complete_result() -> None:
+    result = _check_result()
+    run = ValidationRun(
+        metadata=_run_metadata(),
+        status=RunStatus.COMPLETED,
+        results=(result,),
+    )
+
+    assert run.model_dump(mode="json") == {
+        "metadata": {
+            "run_id": "run-001",
+            "started_at": "2026-07-16T00:00:00Z",
+            "ruleset_version": "1.0.0",
+            "profile_version": "1.0.0",
+        },
+        "status": "completed",
+        "results": [
+            {
+                "finding_code": "UNQA-V001",
+                "rule_version": "1.0.0",
+                "status": "pass",
+                "severity_rank": 0,
+                "profile": "water",
+                "dataset": None,
+                "field": None,
+                "domain": None,
+                "source_location": None,
+                "expected": {"required": ["name"]},
+                "actual": {"present": ["name"]},
+                "evidence": {"columns": ["name"]},
+                "remediation_category": "none",
+                "remediation_guidance": "No action required.",
+            }
+        ],
+        "errors": [],
+    }
+
+
+def test_run_error_serializes_runtime_failure_details() -> None:
+    error = RunError(
+        category="input",
+        code="UNQA-E001",
+        message="Workbook could not be opened.",
+        component="xlsx-reader",
+        recoverable=False,
+        source_location=SourceLocation(file="schema.xlsx", sheet="Fields"),
+    )
+
+    assert error.model_dump(mode="json") == {
+        "category": "input",
+        "code": "UNQA-E001",
+        "message": "Workbook could not be opened.",
+        "component": "xlsx-reader",
+        "recoverable": False,
+        "source_location": {
+            "file": "schema.xlsx",
+            "sheet": "Fields",
+            "row": None,
+            "column": None,
+        },
+    }
+
+
+def test_check_result_rejects_unicode_digits_in_finding_code() -> None:
+    with pytest.raises(ValidationError):
+        _check_result(finding_code="UNQA-V\u0660\u0660\u0661")
+
+
+@pytest.mark.parametrize(
+    ("model_name", "field_name"),
+    [
+        ("check_result", "rule_version"),
+        ("run_metadata", "ruleset_version"),
+        ("run_metadata", "profile_version"),
+    ],
+)
+def test_result_models_reject_unicode_digits_in_versions(
+    model_name: str, field_name: str
+) -> None:
+    overrides = {field_name: "\u0661.0.0"}
+
+    with pytest.raises(ValidationError):
+        if model_name == "check_result":
+            _check_result(**overrides)
+        else:
+            _run_metadata(**overrides)
+
+
+@pytest.mark.parametrize("severity_rank", [-1, 101])
+def test_check_result_rejects_severity_rank_outside_bounds(severity_rank: int) -> None:
+    with pytest.raises(ValidationError):
+        _check_result(severity_rank=severity_rank)
+
+
+@pytest.mark.parametrize("field_name", ["remediation_category", "remediation_guidance"])
+def test_check_result_rejects_empty_remediation_text(field_name: str) -> None:
+    with pytest.raises(ValidationError):
+        _check_result(**{field_name: ""})
+
+
+@pytest.mark.parametrize("field_name", ["category", "code", "message", "component"])
+def test_run_error_rejects_empty_required_text(field_name: str) -> None:
+    values: dict[str, object] = {
+        "category": "input",
+        "code": "UNQA-E001",
+        "message": "Workbook could not be opened.",
+        "component": "xlsx-reader",
+        "recoverable": False,
+    }
+    values[field_name] = ""
+
+    with pytest.raises(ValidationError):
+        RunError.model_validate(values)
+
+
+def test_check_result_rejects_non_json_values() -> None:
+    with pytest.raises(ValidationError):
+        _check_result(expected=object())
+
+
+def test_validation_run_defaults_results_and_errors_to_tuples() -> None:
+    run = ValidationRun(metadata=_run_metadata(), status=RunStatus.COMPLETED)
+
+    assert run.results == ()
+    assert run.errors == ()
+
+
+def test_validation_run_is_immutable() -> None:
+    run = ValidationRun(metadata=_run_metadata(), status=RunStatus.COMPLETED)
+
+    with pytest.raises(ValidationError) as error:
+        run.status = RunStatus.FAILED
+
+    assert error.value.errors()[0]["type"] == "frozen_instance"
