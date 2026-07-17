@@ -37,9 +37,13 @@ class ValidationEngine:
                 results.extend(validator_results)
                 succeeded += 1
             except Exception as exc:
-                message = str(exc)
+                fallback_message = type(exc).__name__
+                try:
+                    message = str(exc)
+                except Exception:
+                    message = fallback_message
                 if not message.strip():
-                    message = type(exc).__name__
+                    message = fallback_message
                 errors.append(
                     RunError(
                         category="validator_execution",

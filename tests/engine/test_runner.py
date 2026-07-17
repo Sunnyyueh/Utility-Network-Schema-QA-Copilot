@@ -32,6 +32,11 @@ class FailingValidator:
         raise RuntimeError("validator crashed")
 
 
+class UnrenderableError(Exception):
+    def __str__(self) -> str:
+        raise RuntimeError("exception rendering failed")
+
+
 class ReturningValidator:
     rule_version = "1.0.0"
 
@@ -253,6 +258,19 @@ def test_empty_exception_message_uses_exception_class_fallback(message: str) -> 
     run = _engine(registry).run(_project(), run_id="run-001", ruleset_version="1.0.0")
 
     assert run.errors[0].message == "RuntimeError"
+
+
+def test_exception_rendering_failure_uses_original_exception_class_fallback() -> None:
+    registry = ValidatorRegistry()
+    registry.register(RaisingValidator("UNQA-V002", UnrenderableError()))
+    registry.register(PassingValidator())
+
+    run = _engine(registry).run(_project(), run_id="run-001", ruleset_version="1.0.0")
+
+    assert run.status is RunStatus.COMPLETED_WITH_ERRORS
+    assert [result.finding_code for result in run.results] == ["UNQA-V001"]
+    assert run.errors[0].component == "UNQA-V002"
+    assert run.errors[0].message == "UnrenderableError"
 
 
 @pytest.mark.parametrize(
