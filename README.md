@@ -184,6 +184,93 @@ un-schema-qa explain \
 
 The deterministic validator does not require an AI provider. AI functionality uses a bring-your-own-key configuration and supports cloud and local model adapters.
 
+## Example Conversations
+
+These examples show how different stakeholders can ask questions about the same deterministic validation results. The Copilot can explain, summarize, and recommend review steps, but it cannot create, remove, or change validation findings.
+
+### GIS Analyst — Investigate Technical Findings
+
+> [!TIP]
+> **Ask the Copilot**
+>
+> “I uploaded a source schema, target schema, and field mapping. Which findings block migration, and what should I review first?”
+
+**Illustrative structured response**
+
+| Validation status | Count |
+| --- | ---: |
+| Blocker | 2 |
+| Warning | 4 |
+| Pass | 18 |
+
+**Technical summary**
+
+Migration is not ready. A required target field is unmapped, and several source domain values do not have an approved target value.
+
+**Evidence**
+
+- `UNQA-V014` — Required target field `assetgroup` has no source mapping.
+- `UNQA-V021` — Four source values in the `Material` domain have no target match.
+- Affected datasets: `ServiceLine` and `Device`.
+
+**Recommended next action:** map the required field, review the domain crosswalk with the data owner, and rerun deterministic validation before loading data.
+
+---
+
+### Project Manager — Understand Migration Readiness
+
+> [!TIP]
+> **Ask the Copilot**
+>
+> “Can the project proceed to data loading, and what should I communicate to the delivery team?”
+
+**Illustrative structured response**
+
+| Decision factor | Result |
+| --- | --- |
+| Readiness decision | **PAUSE** |
+| Primary reason | Two unresolved blocker findings |
+| Affected workstreams | Field mapping and domain review |
+| Next checkpoint | Revalidate after corrective actions are approved |
+
+**Executive summary**
+
+The project should pause before data loading. The current mapping could leave a required classification empty and introduce unapproved coded values. Resolving these items now reduces the risk of rejected records, rework, and schedule disruption during migration.
+
+**Recommended next action:** assign each blocker to an accountable owner, record the agreed disposition, and use the next validation run as the readiness checkpoint.
+
+---
+
+### Utility Organization — Create Audit-Ready Evidence
+
+> [!TIP]
+> **Ask the Copilot**
+>
+> “How can we demonstrate to our governance and QA/QC teams that this schema mapping was reviewed consistently?”
+
+**Illustrative structured response**
+
+The validation package provides a traceable record of what was reviewed and which deterministic rules produced each finding.
+
+| Evidence item | Recorded value |
+| --- | --- |
+| Validation run | Run ID and execution timestamp |
+| Reproducibility | Toolkit, profile, and ruleset versions |
+| Input integrity | SHA-256 hashes for submitted files |
+| Finding traceability | Rule code, dataset, field, severity, and evidence |
+| Review accountability | Disposition, reviewer notes, and follow-up action |
+| Portable outputs | JSON, CSV, Markdown, and HTML reports |
+
+**Organizational value**
+
+- Applies the same QA/QC rules across projects and reviewers.
+- Preserves specialist review knowledge in reusable profiles and rules.
+- Gives engineering, GIS, management, and governance teams a shared evidence format.
+- Supports internal audits, project assurance, onboarding, and repeatable migration decisions.
+
+> [!IMPORTANT]
+> Deterministic findings remain the source of truth. AI-generated explanations and recommendations cannot alter finding codes, severity, evidence, or validation status.
+
 ## Python API
 
 ~~~python
