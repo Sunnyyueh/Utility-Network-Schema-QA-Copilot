@@ -151,3 +151,45 @@ def test_csv_parser_accepts_a_single_utf8_bom_header(tmp_path: Path) -> None:
     assert document.sheets[0].rows == (
         {"name": "Material", "data_type": "string"},
     )
+
+
+@pytest.mark.parametrize(
+    ("row", "actual_fields"),
+    [("x,y,z", 3), ("x", 1), ("", 0)],
+    ids=["extra-field", "missing-field", "blank-record"],
+)
+def test_csv_parser_rejects_malformed_data_record_widths(
+    tmp_path: Path,
+    row: str,
+    actual_fields: int,
+) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text(f"a,b\n{row}\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        CsvParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "CSV_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == (
+        f"CSV record 2 has {actual_fields} fields; expected 2"
+    )
+
+
+def test_csv_parser_accepts_a_quoted_comma_field(tmp_path: Path) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text('a,b\n"x,y",z\n', encoding="utf-8")
+
+    document = CsvParser().parse(path)
+
+    assert document.sheets[0].rows == ({"a": "x,y", "b": "z"},)
+
+
+def test_csv_parser_accepts_a_quoted_newline_field(tmp_path: Path) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text('a,b\n"x\ny",z\n', encoding="utf-8")
+
+    document = CsvParser().parse(path)
+
+    assert document.sheets[0].rows == ({"a": "x\ny", "b": "z"},)

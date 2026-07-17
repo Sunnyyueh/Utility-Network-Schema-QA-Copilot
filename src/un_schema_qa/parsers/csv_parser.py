@@ -19,12 +19,24 @@ class CsvParser:
                 except StopIteration:
                     headers = ()
                     header_missing = True
+                if not headers and not header_missing:
+                    raise InputParseError(
+                        "CSV_PARSE_FAILED",
+                        path,
+                        "empty first CSV record",
+                    )
+                _validate_headers(path, headers)
+                for record_number, record in enumerate(reader, start=2):
+                    if len(record) != len(headers):
+                        raise InputParseError(
+                            "CSV_PARSE_FAILED",
+                            path,
+                            f"CSV record {record_number} has {len(record)} fields; "
+                            f"expected {len(headers)}",
+                        )
         except (OSError, UnicodeError, csv.Error) as exc:
             raise InputParseError("CSV_PARSE_FAILED", path, str(exc)) from exc
 
-        if not headers and not header_missing:
-            raise InputParseError("CSV_PARSE_FAILED", path, "empty first CSV record")
-        _validate_headers(path, headers)
         try:
             frame = pd.read_csv(
                 path,
