@@ -1,2 +1,13 @@
+.DS_Store
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
 .superpowers/
 .worktrees/
+__pycache__/
+build/
+dist/
+htmlcov/
+*.egg-info/

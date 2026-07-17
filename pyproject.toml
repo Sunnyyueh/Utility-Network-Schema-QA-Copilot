@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "utility-network-schema-qa"
+version = "0.1.0"
+description = "Deterministic and AI-assisted Utility Network schema validation"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "Apache-2.0"
+authors = [{ name = "Sunnyyueh" }]
+dependencies = [
+  "openpyxl>=3.1,<4",
+  "pandas>=2.3,<3",
+  "pydantic>=2.13,<3",
+  "pyyaml>=6,<7",
+]
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.140,<7",
+  "mypy>=1.17,<2",
+  "pandas-stubs>=2.3,<3",
+  "pytest>=8.4,<9",
+  "pytest-cov>=6.2,<7",
+  "ruff>=0.12,<1",
+  "types-pyyaml>=6.0,<7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/un_schema_qa"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["un_schema_qa"]
