@@ -11,14 +11,28 @@ from un_schema_qa.parsers.base import InputParseError, ParsedDocument, ParsedShe
 class CsvParser:
     def parse(self, path: Path) -> ParsedDocument:
         try:
-            with path.open(encoding="utf-8", newline="") as stream:
-                headers = tuple(next(csv.reader(stream, strict=True), ()))
+            with path.open(encoding="utf-8-sig", newline="") as stream:
+                reader = csv.reader(stream, strict=True)
+                header_missing = False
+                try:
+                    headers = tuple(next(reader))
+                except StopIteration:
+                    headers = ()
+                    header_missing = True
         except (OSError, UnicodeError, csv.Error) as exc:
             raise InputParseError("CSV_PARSE_FAILED", path, str(exc)) from exc
 
+        if not headers and not header_missing:
+            raise InputParseError("CSV_PARSE_FAILED", path, "empty first CSV record")
         _validate_headers(path, headers)
         try:
-            frame = pd.read_csv(path, dtype=object, encoding="utf-8")
+            frame = pd.read_csv(
+                path,
+                dtype=object,
+                encoding="utf-8-sig",
+                header=0,
+                names=headers or None,
+            )
         except (
             OSError,
             UnicodeError,

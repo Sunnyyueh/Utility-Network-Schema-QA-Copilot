@@ -199,6 +199,37 @@ def test_check_result_json_fields_are_copied_deeply_frozen_and_serializable() ->
     assert '"columns":[{"name":"name","confidence":1.0}]' in result.model_dump_json()
 
 
+def test_check_result_rejects_cyclic_json_input_as_validation_error() -> None:
+    cyclic: dict[str, object] = {}
+    cyclic["self"] = cyclic
+
+    with pytest.raises(ValidationError, match="cyclic JSON value"):
+        _check_result(expected=cyclic)
+
+
+def test_check_result_accepts_repeated_shared_acyclic_json_input() -> None:
+    shared = {"values": [1, 2]}
+
+    result = _check_result(expected={"left": shared, "right": shared})
+
+    assert result.model_dump(mode="json")["expected"] == {
+        "left": {"values": [1, 2]},
+        "right": {"values": [1, 2]},
+    }
+
+
+def test_check_result_json_schema_retains_json_input_contract() -> None:
+    properties = CheckResult.model_json_schema()["properties"]
+
+    assert properties["expected"]["$ref"] == "#/$defs/JsonValue"
+    assert properties["actual"]["$ref"] == "#/$defs/JsonValue"
+    assert properties["evidence"] == {
+        "additionalProperties": {"$ref": "#/$defs/JsonValue"},
+        "title": "Evidence",
+        "type": "object",
+    }
+
+
 def test_validation_run_defaults_results_and_errors_to_tuples() -> None:
     run = ValidationRun(metadata=_run_metadata(), status=RunStatus.COMPLETED)
 

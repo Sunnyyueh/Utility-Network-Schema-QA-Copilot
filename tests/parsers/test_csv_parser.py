@@ -110,3 +110,44 @@ def test_csv_parser_rejects_blank_or_missing_raw_headers(
     assert error.code == "CSV_PARSE_FAILED"
     assert error.path == path
     assert error.detail == "blank header at column 2"
+
+
+def test_csv_parser_rejects_an_empty_first_record_before_pandas_skips_it(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text("\nname,name\na,b\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        CsvParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "CSV_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "empty first CSV record"
+
+
+def test_csv_parser_rejects_duplicate_after_pandas_bom_normalization(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text("\ufeffname,name\na,b\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        CsvParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "CSV_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "duplicate header 'name'"
+
+
+def test_csv_parser_accepts_a_single_utf8_bom_header(tmp_path: Path) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text("\ufeffname,data_type\nMaterial,string\n", encoding="utf-8")
+
+    document = CsvParser().parse(path)
+
+    assert document.sheets[0].rows == (
+        {"name": "Material", "data_type": "string"},
+    )

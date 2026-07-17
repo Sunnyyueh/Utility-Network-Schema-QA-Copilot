@@ -172,3 +172,19 @@ def test_yaml_parser_rejects_duplicate_mapping_keys(
     assert error.path == path
     assert "duplicate key" in error.detail
     assert isinstance(error.__cause__, yaml.YAMLError)
+
+
+def test_yaml_parser_wraps_recursive_alias_as_structured_input_error(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "schema.yaml"
+    path.write_text("- &row\n  self: *row\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        YamlParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "ROWS_INVALID"
+    assert error.path == path
+    assert "cyclic JSON value" in str(error.__cause__)
+    assert not isinstance(error.__cause__, RecursionError)
