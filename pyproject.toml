@@ -32,7 +32,7 @@ dev = [
 packages = ["src/un_schema_qa"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-config --strict-markers"
+addopts = "-ra --strict-config --strict-markers --import-mode=importlib"
 testpaths = ["tests"]
 
 [tool.ruff]
