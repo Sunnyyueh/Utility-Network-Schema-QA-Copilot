@@ -12,7 +12,7 @@
 
 - Python requires version 3.12 or newer and version 3.15 is excluded until all dependencies declare support.
 - The deterministic core must run without network access, ArcGIS Pro, ArcPy, or an AI key.
-- All models use immutable Pydantic v2 models unless a task explicitly defines a mutable builder.
+- All Pydantic v2 models set `ConfigDict(frozen=True)` unless a task explicitly defines a mutable builder; ordered collections use tuples.
 - Validation reads inputs but never modifies source files or writes to databases.
 - Supported input formats are CSV, XLSX, JSON, and YAML.
 - Public data structures serialize to stable JSON-compatible values.
@@ -155,6 +155,8 @@ packages = ["un_schema_qa"]
 .pytest_cache/
 .ruff_cache/
 .venv/
+.superpowers/
+.worktrees/
 __pycache__/
 build/
 dist/
