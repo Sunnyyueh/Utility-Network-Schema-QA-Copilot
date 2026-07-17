@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from un_schema_qa.models.common import SourceLocation
 from un_schema_qa.models.enums import CheckStatus, RunStatus, UtilityDomain
+from un_schema_qa.models.json_values import FrozenJsonObject, FrozenJsonValue
 
 
 class CheckResult(BaseModel):
@@ -18,9 +19,9 @@ class CheckResult(BaseModel):
     field: str | None = None
     domain: str | None = None
     source_location: SourceLocation | None = None
-    expected: JsonValue
-    actual: JsonValue
-    evidence: dict[str, JsonValue]
+    expected: FrozenJsonValue
+    actual: FrozenJsonValue
+    evidence: FrozenJsonObject
     remediation_category: str = Field(min_length=1)
     remediation_guidance: str = Field(min_length=1)
 

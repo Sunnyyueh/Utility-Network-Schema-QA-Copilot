@@ -43,3 +43,37 @@ def test_dataset_is_immutable() -> None:
         dataset.name = "SewerLine"
 
     assert error.value.errors()[0]["type"] == "frozen_instance"
+
+
+@pytest.mark.parametrize(
+    "default",
+    [
+        object(),
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        {"nested": [float("nan")]},
+    ],
+    ids=["object", "nan", "positive-infinity", "negative-infinity", "nested-nan"],
+)
+def test_field_default_rejects_values_outside_finite_json(default: object) -> None:
+    with pytest.raises(ValidationError):
+        FieldDefinition(name="Material", data_type="string", default=default)
+
+
+def test_field_default_is_copied_deeply_frozen_and_json_serializable() -> None:
+    original = {"options": [{"ratio": 1.25}]}
+    field = FieldDefinition(name="Material", data_type="string", default=original)
+
+    original["options"][0]["ratio"] = 9.5
+    original["options"].append({"ratio": 2.5})
+
+    assert field.default == {"options": ({"ratio": 1.25},)}
+    with pytest.raises(TypeError):
+        field.default["options"][0]["ratio"] = 3.5
+    with pytest.raises(TypeError):
+        field.default["options"][0] = {"ratio": 3.5}
+    assert field.model_dump(mode="json")["default"] == {
+        "options": [{"ratio": 1.25}]
+    }
+    assert '"default":{"options":[{"ratio":1.25}]}' in field.model_dump_json()

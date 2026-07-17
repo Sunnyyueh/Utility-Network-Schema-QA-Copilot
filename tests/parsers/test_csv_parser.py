@@ -80,3 +80,33 @@ def test_csv_parser_does_not_modify_input_bytes(tmp_path: Path) -> None:
     CsvParser().parse(path)
 
     assert path.read_bytes() == original
+
+
+def test_csv_parser_rejects_duplicate_raw_headers(tmp_path: Path) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text("name,name\nMaterial,PVC\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        CsvParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "CSV_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "duplicate header 'name'"
+
+
+@pytest.mark.parametrize("header", ["name,", "name,   "])
+def test_csv_parser_rejects_blank_or_missing_raw_headers(
+    tmp_path: Path,
+    header: str,
+) -> None:
+    path = tmp_path / "schema.csv"
+    path.write_text(f"{header}\nMaterial,PVC\n", encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        CsvParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "CSV_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "blank header at column 2"

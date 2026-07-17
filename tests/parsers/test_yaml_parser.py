@@ -147,3 +147,28 @@ def test_yaml_parser_does_not_modify_input_bytes(tmp_path: Path) -> None:
     YamlParser().parse(path)
 
     assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "fields: []\nfields: []\n",
+        "- attributes:\n    name: first\n    name: second\n",
+    ],
+    ids=["top-level", "nested"],
+)
+def test_yaml_parser_rejects_duplicate_mapping_keys(
+    tmp_path: Path,
+    contents: str,
+) -> None:
+    path = tmp_path / "schema.yaml"
+    path.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        YamlParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "YAML_PARSE_FAILED"
+    assert error.path == path
+    assert "duplicate key" in error.detail
+    assert isinstance(error.__cause__, yaml.YAMLError)

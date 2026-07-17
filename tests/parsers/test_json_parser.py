@@ -114,3 +114,45 @@ def test_json_parser_does_not_modify_input_bytes(tmp_path: Path) -> None:
     JsonParser().parse(path)
 
     assert path.read_bytes() == original
+
+
+def test_json_parser_rows_are_deeply_frozen_and_serialize_as_json(tmp_path: Path) -> None:
+    path = tmp_path / "schema.json"
+    path.write_text('[{"attributes": [{"ratio": 1.5}]}]', encoding="utf-8")
+
+    document = JsonParser().parse(path)
+    row = document.sheets[0].rows[0]
+
+    with pytest.raises(TypeError):
+        row["attributes"][0]["ratio"] = 0.0
+    with pytest.raises(TypeError):
+        row["attributes"][0] = {"ratio": 0.0}
+    assert document.model_dump(mode="json")["sheets"][0]["rows"] == [
+        {"attributes": [{"ratio": 1.5}]}
+    ]
+    assert '"attributes":[{"ratio":1.5}]' in document.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        '{"fields": [], "fields": []}',
+        '[{"attributes": {"name": "first", "name": "second"}}]',
+    ],
+    ids=["top-level", "nested"],
+)
+def test_json_parser_rejects_duplicate_object_keys(
+    tmp_path: Path,
+    contents: str,
+) -> None:
+    path = tmp_path / "schema.json"
+    path.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(InputParseError) as exc_info:
+        JsonParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "JSON_PARSE_FAILED"
+    assert error.path == path
+    assert "duplicate key" in error.detail
+    assert error.__cause__ is not None

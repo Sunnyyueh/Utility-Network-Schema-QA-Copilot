@@ -7,7 +7,7 @@ name = "utility-network-schema-qa"
 version = "0.1.0"
 description = "Deterministic and AI-assisted Utility Network schema validation"
 readme = "README.md"
-requires-python = ">=3.12,<3.15"
+requires-python = ">=3.12,!=3.15.*"
 license = "Apache-2.0"
 authors = [{ name = "Sunnyyueh" }]
 dependencies = [

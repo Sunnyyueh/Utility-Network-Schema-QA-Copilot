@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from openpyxl import Workbook
 
 from un_schema_qa.models.enums import InputFormat
 from un_schema_qa.parsers.base import InputParseError
@@ -135,3 +136,63 @@ def test_excel_parser_does_not_modify_input_bytes(tmp_path: Path) -> None:
     ExcelParser().parse(path)
 
     assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("headers", "duplicate"),
+    [(["name", "name"], "name"), ([1, "1"], "1")],
+    ids=["identical", "normalized-output-key"],
+)
+def test_excel_parser_rejects_duplicate_normalized_headers(
+    tmp_path: Path,
+    headers: list[object],
+    duplicate: str,
+) -> None:
+    path = tmp_path / "schema.xlsx"
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Fields"
+    worksheet.append(headers)
+    worksheet.append(["Material", "PVC"])
+    workbook.save(path)
+
+    with pytest.raises(InputParseError) as exc_info:
+        ExcelParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "XLSX_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == f"worksheet 'Fields': duplicate header {duplicate!r}"
+
+
+def test_excel_parser_rejects_blank_or_missing_headers(tmp_path: Path) -> None:
+    path = tmp_path / "schema.xlsx"
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Fields"
+    worksheet.append(["name", None])
+    worksheet.append(["Material", "PVC"])
+    workbook.save(path)
+
+    with pytest.raises(InputParseError) as exc_info:
+        ExcelParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "XLSX_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "worksheet 'Fields': blank header at column 2"
+
+
+def test_excel_parser_rejects_a_missing_header_row(tmp_path: Path) -> None:
+    path = tmp_path / "schema.xlsx"
+    workbook = Workbook()
+    workbook.active.title = "Fields"
+    workbook.save(path)
+
+    with pytest.raises(InputParseError) as exc_info:
+        ExcelParser().parse(path)
+
+    error = exc_info.value
+    assert error.code == "XLSX_PARSE_FAILED"
+    assert error.path == path
+    assert error.detail == "worksheet 'Fields': missing header row"

@@ -70,3 +70,38 @@ def test_profile_is_immutable() -> None:
         profile.name = "Updated Profile"
 
     assert error.value.errors()[0]["type"] == "frozen_instance"
+
+
+def test_profile_mappings_are_copied_frozen_and_json_serializable() -> None:
+    severity_overrides = {"UNQA-V017": CheckStatus.WARNING}
+    terminology = {"pipe": "water main"}
+    classification_constraints = {"Line": ["Main"]}
+    profile = UtilityProfile(
+        name="Water Foundation",
+        domain=UtilityDomain.WATER,
+        version="1.0.0",
+        terminology=terminology,
+        classification_constraints=classification_constraints,
+        rule_configuration=RuleConfiguration(severity_overrides=severity_overrides),
+    )
+
+    severity_overrides["UNQA-V017"] = CheckStatus.BLOCKER
+    terminology["pipe"] = "changed"
+    classification_constraints["Line"].append("Service")
+
+    assert profile.rule_configuration.severity_overrides == {
+        "UNQA-V017": CheckStatus.WARNING
+    }
+    assert profile.terminology == {"pipe": "water main"}
+    assert profile.classification_constraints == {"Line": ("Main",)}
+    with pytest.raises(TypeError):
+        profile.rule_configuration.severity_overrides["UNQA-V017"] = CheckStatus.FAIL
+    with pytest.raises(TypeError):
+        profile.terminology["pipe"] = "changed"
+    with pytest.raises(TypeError):
+        profile.classification_constraints["Line"] = ("Service",)
+
+    assert profile.model_dump(mode="json")["classification_constraints"] == {
+        "Line": ["Main"]
+    }
+    assert '"severity_overrides":{"UNQA-V017":"warning"}' in profile.model_dump_json()

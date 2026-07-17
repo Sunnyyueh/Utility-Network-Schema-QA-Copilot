@@ -1,16 +1,10 @@
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    JsonValue,
-    TypeAdapter,
-    ValidationError,
-)
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from un_schema_qa.models.enums import InputFormat
+from un_schema_qa.models.json_values import FrozenJsonObject
 
 
 class InputParseError(Exception):
@@ -25,7 +19,7 @@ class ParsedSheet(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(min_length=1)
-    rows: tuple[dict[str, JsonValue], ...] = ()
+    rows: tuple[FrozenJsonObject, ...] = ()
 
 
 class ParsedDocument(BaseModel):
@@ -42,10 +36,7 @@ class Parser(Protocol):
         ...
 
 
-_ROW_ADAPTER: TypeAdapter[dict[str, JsonValue]] = TypeAdapter(
-    dict[str, JsonValue],
-    config=ConfigDict(strict=True, allow_inf_nan=False),
-)
+_ROW_ADAPTER: TypeAdapter[FrozenJsonObject] = TypeAdapter(FrozenJsonObject)
 
 
 def document_from_structured_data(
@@ -77,7 +68,7 @@ def _validate_rows(
     path: Path,
     sheet: str,
     rows: Any,
-) -> tuple[dict[str, JsonValue], ...]:
+) -> tuple[FrozenJsonObject, ...]:
     if not isinstance(rows, list):
         raise InputParseError(
             "ROWS_INVALID",

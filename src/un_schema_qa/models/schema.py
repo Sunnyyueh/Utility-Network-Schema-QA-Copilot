@@ -1,8 +1,7 @@
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from un_schema_qa.models.common import SourceLocation
+from un_schema_qa.models.json_values import FrozenJsonValue
 
 
 class FieldDefinition(BaseModel):
@@ -13,7 +12,7 @@ class FieldDefinition(BaseModel):
     required: bool = False
     nullable: bool = True
     length: int | None = Field(default=None, ge=1)
-    default: Any = None
+    default: FrozenJsonValue = None
     domain: str | None = None
     source_location: SourceLocation | None = None
 

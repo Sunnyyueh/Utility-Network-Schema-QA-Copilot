@@ -172,7 +172,6 @@ def test_empty_success_plus_failure_is_completed_with_errors() -> None:
 
 def test_results_are_sorted_by_finding_code_dataset_field_and_domain() -> None:
     unsorted_results = (
-        _result(finding_code="UNQA-V002"),
         _result(dataset="beta", field="field-a", domain="domain-a"),
         _result(dataset="alpha", field="field-b", domain="domain-a"),
         _result(dataset="alpha", field="field-a", domain="domain-b"),
@@ -181,6 +180,7 @@ def test_results_are_sorted_by_finding_code_dataset_field_and_domain() -> None:
     )
     registry = ValidatorRegistry()
     registry.register(ReturningValidator("UNQA-V001", unsorted_results))
+    registry.register(ReturningValidator("UNQA-V002", (_result(finding_code="UNQA-V002"),)))
 
     run = _engine(registry).run(_project(), run_id="run-001", ruleset_version="1.0.0")
 
@@ -231,6 +231,35 @@ def test_metadata_uses_run_ruleset_profile_and_one_clock_call() -> None:
     assert run.metadata.profile_version == "1.0.0"
     assert run.metadata.started_at == started_at
     assert clock_calls == 1
+
+
+def test_engine_captures_start_time_once_before_validators_execute() -> None:
+    events: list[str] = []
+    started_at = datetime(2026, 7, 17, 12, 30, tzinfo=UTC)
+
+    class RecordingValidator:
+        code = "UNQA-V001"
+        rule_version = "1.0.0"
+
+        def validate(self, project: ValidationProject) -> tuple[CheckResult, ...]:
+            events.append("validator")
+            return ()
+
+    def clock() -> datetime:
+        events.append("clock")
+        return started_at
+
+    registry = ValidatorRegistry()
+    registry.register(RecordingValidator())
+
+    run = ValidationEngine(registry, clock=clock).run(
+        _project(),
+        run_id="run-001",
+        ruleset_version="1.0.0",
+    )
+
+    assert events == ["clock", "validator"]
+    assert run.metadata.started_at == started_at
 
 
 def test_validator_failure_has_exact_recoverable_engine_error() -> None:
@@ -298,6 +327,52 @@ def test_malformed_validator_output_is_isolated_without_result_leakage(
     assert run.errors[0].code == "ENGINE_VALIDATOR_FAILURE"
     assert run.errors[0].component == "UNQA-V002"
     assert run.errors[0].recoverable is True
+
+
+@pytest.mark.parametrize(
+    "mismatched_result",
+    [
+        _result(finding_code="UNQA-V003"),
+        _result(finding_code="UNQA-V002", rule_version="2.0.0"),
+        _result(finding_code="UNQA-V002", profile=UtilityDomain.WASTEWATER),
+    ],
+    ids=["finding-code", "rule-version", "profile"],
+)
+def test_validator_result_attribution_mismatch_is_recoverable_and_atomic(
+    mismatched_result: CheckResult,
+) -> None:
+    registry = ValidatorRegistry()
+    registry.register(ReturningValidator("UNQA-V001", (_result(),)))
+    registry.register(ReturningValidator("UNQA-V002", (mismatched_result,)))
+
+    run = _engine(registry).run(_project(), run_id="run-001", ruleset_version="1.0.0")
+
+    assert run.status is RunStatus.COMPLETED_WITH_ERRORS
+    assert [result.finding_code for result in run.results] == ["UNQA-V001"]
+    assert len(run.errors) == 1
+    assert run.errors[0].code == "ENGINE_VALIDATOR_FAILURE"
+    assert run.errors[0].component == "UNQA-V002"
+    assert run.errors[0].recoverable is True
+
+
+def test_late_attribution_mismatch_discards_earlier_result_from_same_validator() -> None:
+    registry = ValidatorRegistry()
+    registry.register(ReturningValidator("UNQA-V001", (_result(),)))
+    registry.register(
+        ReturningValidator(
+            "UNQA-V002",
+            (
+                _result(finding_code="UNQA-V002"),
+                _result(finding_code="UNQA-V003"),
+            ),
+        )
+    )
+
+    run = _engine(registry).run(_project(), run_id="run-001", ruleset_version="1.0.0")
+
+    assert run.status is RunStatus.COMPLETED_WITH_ERRORS
+    assert [result.finding_code for result in run.results] == ["UNQA-V001"]
+    assert [error.component for error in run.errors] == ["UNQA-V002"]
 
 
 def test_base_exception_is_not_isolated() -> None:

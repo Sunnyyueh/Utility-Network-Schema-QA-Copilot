@@ -156,6 +156,49 @@ def test_check_result_rejects_non_json_values() -> None:
         _check_result(expected=object())
 
 
+@pytest.mark.parametrize("field_name", ["expected", "actual", "evidence"])
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), float("-inf"), {"nested": [float("inf")]}],
+    ids=["nan", "positive-infinity", "negative-infinity", "nested-infinity"],
+)
+def test_check_result_json_fields_reject_non_finite_values(
+    field_name: str,
+    value: object,
+) -> None:
+    with pytest.raises(ValidationError):
+        _check_result(**{field_name: value})
+
+
+def test_check_result_json_fields_are_copied_deeply_frozen_and_serializable() -> None:
+    expected = {"required": ["name"]}
+    actual = {"present": ["name"]}
+    evidence = {"columns": [{"name": "name", "confidence": 1.0}]}
+    result = _check_result(expected=expected, actual=actual, evidence=evidence)
+
+    expected["required"].append("type")
+    actual["present"][0] = "changed"
+    evidence["columns"][0]["confidence"] = 0.0
+
+    assert result.expected == {"required": ("name",)}
+    assert result.actual == {"present": ("name",)}
+    assert result.evidence == {
+        "columns": ({"name": "name", "confidence": 1.0},)
+    }
+    with pytest.raises(TypeError):
+        result.evidence["columns"][0]["confidence"] = 0.5
+    with pytest.raises(TypeError):
+        result.evidence["columns"][0] = {"name": "other"}
+
+    payload = result.model_dump(mode="json")
+    assert payload["expected"] == {"required": ["name"]}
+    assert payload["actual"] == {"present": ["name"]}
+    assert payload["evidence"] == {
+        "columns": [{"name": "name", "confidence": 1.0}]
+    }
+    assert '"columns":[{"name":"name","confidence":1.0}]' in result.model_dump_json()
+
+
 def test_validation_run_defaults_results_and_errors_to_tuples() -> None:
     run = ValidationRun(metadata=_run_metadata(), status=RunStatus.COMPLETED)
 

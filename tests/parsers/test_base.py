@@ -122,3 +122,37 @@ def test_document_serializes_path_and_input_format_in_json_mode() -> None:
         "input_format": "json",
         "sheets": [{"name": "data", "rows": []}],
     }
+
+
+def test_direct_parsed_sheet_rows_use_finite_deeply_frozen_json_values() -> None:
+    original = {"attributes": [{"ratio": 1.5}]}
+    sheet = ParsedSheet(name="data", rows=(original,))
+
+    original["attributes"][0]["ratio"] = 9.5
+    original["attributes"].append({"ratio": 2.5})
+
+    assert sheet.rows == ({"attributes": ({"ratio": 1.5},)},)
+    with pytest.raises(TypeError):
+        sheet.rows[0]["attributes"][0]["ratio"] = 0.0
+    with pytest.raises(TypeError):
+        sheet.rows[0]["attributes"][0] = {"ratio": 0.0}
+    assert sheet.model_dump(mode="json") == {
+        "name": "data",
+        "rows": [{"attributes": [{"ratio": 1.5}]}],
+    }
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"value": object()},
+        {"value": float("nan")},
+        {"value": float("inf")},
+        {"value": float("-inf")},
+        {"value": {1: "not-a-string-key"}},
+    ],
+    ids=["object", "nan", "positive-infinity", "negative-infinity", "non-string-key"],
+)
+def test_direct_parsed_sheet_rejects_values_outside_finite_json(row: object) -> None:
+    with pytest.raises(ValidationError):
+        ParsedSheet(name="data", rows=(row,))
